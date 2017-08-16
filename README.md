@@ -1,14 +1,25 @@
 # trail
 
-A Clojure library designed to ... well, that part is up to you.
+Ring routing library
+
+## Install
+
+```bash
+lein plz trail
+```
 
 ## Usage
 
-FIXME
+```clojure
+(ns your-proj.core
+  (require [trail.core :as trail])
 
-## License
+(defn get-org-teams [request])
 
-Copyright © 2017 FIXME
+(trail/route {:method :get
+              :uri "/organizations/:org-id/teams/:team-id"
+              :fn get-org-teams})
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+(trail/match-route {:request-method :get :uri "/organizations/1/teams/2"})
+; => {:fn get-org-teams :params {:org-id 1 :team-id 2}}
+```
