@@ -34,4 +34,10 @@
                           :uri "/users"
                           :fn :all})]
       (is (= {:fn :all :params {}} (trail/match-route {:uri "/users"
-                                                       :request-method :get}))))))
+                                                       :request-method :get})))))
+
+  (testing "match /"
+    (let [_ (trail/route {:method :get
+                          :uri "/"
+                          :fn :home})])
+    (is (= {:fn :home :params {}} (trail/match-route {:uri "/" :request-method :get})))))

@@ -2,23 +2,23 @@
 
 (def routes (atom {}))
 
+(defn not-empty? [str]
+  (not (empty? str)))
+
 (defn route [{:keys [uri method fn]}]
   (when
     (and (every? #(not (nil? %)) [uri method fn])
          (contains? #{:get :put :post :delete} method)
-      (let [segments (filter #(not (empty? %)) (clojure.string/split uri #"/"))]
+      (let [segments (filter not-empty? (clojure.string/split uri #"/" 1))]
         (swap! routes update-in (list segments) assoc method fn)))))
 
 (defn seg-matches? [route-seg uri-seg]
   (and (= (first route-seg) (first uri-seg))
        (= (count route-seg) (count uri-seg))))
 
-(defn seg? [str]
-  (not (empty? str)))
-
 (defn segments [uri]
   (when uri
-    (filter seg? (clojure.string/split uri #"/"))))
+    (filter not-empty? (clojure.string/split uri #"/" 1))))
 
 (defn route-match-map [route-map uri]
     (let [segs (segments uri)
