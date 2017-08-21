@@ -1,6 +1,7 @@
-(defproject trail "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+(defproject trail "1.0.0"
+  :description "Ring routing library"
+  :url "https://github.com/swlkr/trail"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0"]])
+  :dependencies [[org.clojure/clojure "1.8.0"]
+                 [clout "2.1.2"]])
