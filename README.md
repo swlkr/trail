@@ -5,7 +5,7 @@ Ring routing library
 ## Install
 
 ```bash
-lein plz trail
+lein plz add trail
 ```
 
 ## Usage
@@ -21,5 +21,10 @@ lein plz trail
               :fn get-org-teams})
 
 (trail/match-route {:request-method :get :uri "/organizations/1/teams/2"})
-; => {:fn get-org-teams :params {:org-id 1 :team-id 2}}
+; => {:fn get-org-teams :params {:org-id "1" :team-id "2"}}
+
+; there's a ring handler function too
+(defn app []
+  (-> trail/routes
+      ... middleware))
 ```
