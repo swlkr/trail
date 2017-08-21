@@ -1,47 +1,49 @@
-(ns trail.core)
+(ns trail.core
+  (:require [clout.core :as clout]))
 
-(def routes (atom {}))
 
-(defn not-empty? [str]
-  (not (empty? str)))
+(def route-map (atom {}))
+
+
+(defn not-nil? [v]
+  (not (nil? v)))
+
 
 (defn route [{:keys [uri method fn]}]
   (when
-    (and (every? #(not (nil? %)) [uri method fn])
-         (contains? #{:get :put :post :delete} method)
-      (let [segments (filter not-empty? (clojure.string/split uri #"/" 1))]
-        (swap! routes update-in (list segments) assoc method fn)))))
+    (and (every? not-nil? [uri method fn])
+         (contains? #{:get :put :post :delete} method))
+    (let [compiled-route (clout/route-compile uri)]
+      (swap! route-map update-in [method] assoc uri {:fn fn
+                                                     :compiled-route compiled-route}))))
 
-(defn seg-matches? [route-seg uri-seg]
-  (and (= (first route-seg) (first uri-seg))
-       (= (count route-seg) (count uri-seg))))
 
-(defn segments [uri]
-  (when uri
-    (filter not-empty? (clojure.string/split uri #"/" 1))))
+(defn match-route [route-data request]
+  (let [compiled-route (:compiled-route route-data)
+        route-params (clout/route-matches compiled-route request)]
+    (when (not-nil? route-params)
+      {:fn (:fn route-data)
+       :route-params route-params})))
 
-(defn route-match-map [route-map uri]
-    (let [segs (segments uri)
-          routes (filter #(seg-matches? segs %) (keys route-map))]
-      (first (map #(zipmap % segs) routes))))
 
-(defn route-params [match-map]
-  (let [ks (keys match-map)
-        param-keys (filter #(clojure.string/starts-with? % ":") ks)
-        param-str-map (select-keys match-map param-keys)]
-    (into {} (map (fn [[k v]] [(keyword (subs k 1)) v]) param-str-map))))
+(defn route-matches [routes request]
+  (let [request-method (:request-method request)
+        uri (:uri request)
+        route-map (get routes request-method)]
+    (when (every? not-nil? [request-method uri routes])
+      (first (filter not-nil? (map (fn [[k v]] (match-route v request)) route-map))))))
 
-(defn get-fn [request-method route-map match-map]
-  (let [k (keys match-map)
-        fns (get route-map k)]
-    (get fns request-method)))
 
-(defn match-route [{:keys [request-method uri]}]
-  (when (every? #(not (nil? %)) [request-method uri])
-    (let [route-map @routes
-          match-map (route-match-map route-map uri)
-          params (route-params match-map)
-          f (get-fn request-method route-map match-map)]
-      (if (nil? f)
-        nil
-        {:fn f :params params}))))
+(defn match [request]
+  (route-matches @route-map request))
+
+
+(defn routes [request]
+  (let [match (match request)
+        f (:fn match)
+        route-params (:route-params match)
+        params (merge route-params (:params request))]
+    (when (not (nil? f))
+      (f (assoc request :route-params route-params
+                        :params params)))))
+
