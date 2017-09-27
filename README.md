@@ -64,3 +64,38 @@ There's also a function that actually does the mapping
 
 (server/run-server app {:port 1337})
 ```
+
+The last thing this library has that other routing
+libraries do not is the concept of a `resource`
+shamelessly stolen from rails routing
+
+So instead of this
+
+```clojure
+(ns your-app.core
+  (require [trail.core :as trail]
+           [your-app.controllers.items :as items]))
+
+(def routes
+  (-> (trail/get "/items"          items/index)
+      (trail/get "/items/:id"      items/show)
+      (trail/get "/items/:id/new"  items/new!)
+      (trail/get "/items/:id/edit" items/edit)
+      (trail/post "/items"         items/create)
+      (trail/put "/items/:id"      items/update)
+      (trail/delete "/items/:id"   items/delete)))
+```
+
+You can do this
+
+```clojure
+(ns your-app.core
+  (require [trail.core :as trail]
+           [your-app.controllers.items :as items]))
+           [your-app.controllers.tags :as tags]))
+
+(def routes
+  (-> {}
+      (trail/resource :items)
+      (trail/resource :tags)))
+```
