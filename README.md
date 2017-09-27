@@ -41,7 +41,6 @@ But there are some functions that make it a little nicer
 ```
 
 There's also a function that actually does the mapping
-as a ring middleware
 
 ```clojure
 (ns your-app.core
