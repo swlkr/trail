@@ -59,8 +59,8 @@ There's also a function that actually does the mapping
       (trail/delete "/items/:id"   items/delete)))
 
 (def app
-  (-> (trail/match-routes routes)))
-      (ring-defaults/wrap-defaults site-defaults)
+  (-> (trail/match-routes routes)
+      (ring-defaults/wrap-defaults site-defaults)))
 
 (server/run-server app {:port 1337})
 ```
