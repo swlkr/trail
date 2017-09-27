@@ -4,27 +4,64 @@ Ring routing library
 
 ## Install
 
-```bash
-lein plz add trail
+Add this to your `project.clj`
+
+```clojure
+[trail "1.0.0"]
 ```
 
 ## Usage
 
+A route map is organized like this
+
 ```clojure
-(ns your-proj.core
-  (require [trail.core :as trail])
+(def routes {
+  [:get "/items"]          items/index
+  [:get "/items/:id"]      items/show
+  [:get "/items/:id/new"]  items/new!
+  [:get "/items/:id/edit"] items/edit
+  [:post "/items"]         items/create
+  [:put "/items/:id"]      items/update
+  [:delete "/items/:id"]   items/delete
+})
+```
 
-(defn get-org-teams [request])
+And you can write your routes as data if you wanted to.
+But there are some functions that make it a little nicer
 
-(trail/route {:method :get
-              :uri "/organizations/:org-id/teams/:team-id"
-              :fn get-org-teams})
+```clojure
+(def routes
+  (-> (trail/get "/items"          items/index)
+      (trail/get "/items/:id"      items/show)
+      (trail/get "/items/:id/new"  items/new!)
+      (trail/get "/items/:id/edit" items/edit)
+      (trail/post "/items"         items/create)
+      (trail/put "/items/:id"      items/update)
+      (trail/delete "/items/:id"   items/delete)))
+```
 
-(trail/match-route {:request-method :get :uri "/organizations/1/teams/2"})
-; => {:fn get-org-teams :params {:org-id "1" :team-id "2"}}
+There's also a function that actually does the mapping
+as a ring middleware
 
-; there's a ring handler function too
-(defn app []
-  (-> trail/routes
-      ... middleware))
+```clojure
+(ns your-app.core
+  (require [trail.core :as trail]
+           [org.httpkit.server :as server]
+           [ring.middleware.defaults :as ring-defaults]
+           [your-app.controllers.items :as items]))
+
+(def routes
+  (-> (trail/get "/items"          items/index)
+      (trail/get "/items/:id"      items/show)
+      (trail/get "/items/:id/new"  items/new!)
+      (trail/get "/items/:id/edit" items/edit)
+      (trail/post "/items"         items/create)
+      (trail/put "/items/:id"      items/update)
+      (trail/delete "/items/:id"   items/delete)))
+
+(def app
+  (-> (trail/match-routes routes)))
+      (ring-defaults/wrap-defaults site-defaults)
+
+(server/run-server app {:port 1337})
 ```
