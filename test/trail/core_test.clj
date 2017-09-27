@@ -1,69 +1,55 @@
 (ns trail.core-test
   (:require [clojure.test :refer :all]
             [clout.core :as clout]
-            [trail.core :as trail]))
+            [trail.core :refer :all]
+            [trail.users :as users])
+  (:refer-clojure :exclude [get]))
 
-(defn add-routes []
-  (do
-    (trail/route {:method :get :uri "/users" :fn :all})
-    (trail/route {:method :post :uri "/users" :fn :create})
-    (trail/route {:method :get :uri "/" :fn :home})
-    (trail/route {:method :get :uri "/users/:id" :fn :users.http/fetch})
-    (trail/route {:method :get :uri "/users/:user-id/flags/:flag-id/tags" :fn :tags.http/fetch})))
+(defn auth [handler]
+  (fn [request]
+    (handler (assoc request :test "test"))))
 
-(defn route-fixture [f]
-  (add-routes)
-  (f))
+(deftest match-routes-test
+  (let [protected-routes (-> (get "/" (fn [r] (str "GET / " (:test r))))
+                             (get "/sign-out" (fn [r] (str "GET /sign-out " (:test r)))))
+        routes (-> (wrap-routes auth protected-routes)
+                   (get "/sign-up" (fn [r] "GET /sign-up"))
+                   (post "/users" (fn [r] "POST /users"))
+                   (put "/users/:id" (fn [r] (str "PUT /users " (-> r :params :id))))
+                   (patch "/users/:user-id" (fn [r] (str "PATCH /users " (-> r :params :user-id))))
+                   (delete "/users/:uid" (fn [r] (str "DELETE /users " (-> r :params :uid))))
+                   (not-found (fn [r] "not found")))]
 
-(use-fixtures :once route-fixture)
+    (testing "custom not found route"
+      (is (= "not found" ((match-routes routes) {:request-method :get :uri "/not-found"}))))
 
-(deftest route-test
-  (testing "adding a route"
-    (is (and (= (keys @trail/route-map) [:get :post])
-             (= (keys (get @trail/route-map :get)) ["/users" "/" "/users/:id" "/users/:user-id/flags/:flag-id/tags"])
-             (= (keys (get @trail/route-map :post)) ["/users"]))))
+    (testing "default not found route"
+      (let [routes (dissoc routes :not-found)]
+        (is (= {:status 404} ((match-routes routes) {:request-method :get :uri "/something"})))))
 
-  (testing "adding an invalid route"
-    (let [_ (trail/route {:method nil :uri "/users" :fn :all})]
-      (is (and (= (keys @trail/route-map) [:get :post])
-               (= (keys (get @trail/route-map :get)) ["/users" "/" "/users/:id" "/users/:user-id/flags/:flag-id/tags"])
-               (= (keys (get @trail/route-map :post)) ["/users"])))))
+    (testing "matched route"
+      (is (= "GET /sign-up" ((match-routes routes) {:request-method :get :uri "/sign-up"}))))
 
-  (testing "adding nil"
-    (let [_ (trail/route nil)]
-      (is (and (= (keys @trail/route-map) [:get :post])
-               (= (keys (get @trail/route-map :get)) ["/users" "/" "/users/:id" "/users/:user-id/flags/:flag-id/tags"])
-               (= (keys (get @trail/route-map :post)) ["/users"])))))
+    (testing "matched wrapped route"
+      (is (= "GET / test" ((match-routes routes) {:request-method :get :uri "/"}))))
 
-  (testing "adding nil uri and nil fn"
-    (let [_ (trail/route {:method :get :uri nil :fn nil})]
-      (is (and (= (keys @trail/route-map) [:get :post])
-               (= (keys (get @trail/route-map :get)) ["/users" "/" "/users/:id" "/users/:user-id/flags/:flag-id/tags"])
-               (= (keys (get @trail/route-map :post)) ["/users"]))))))
+    (testing "matched POST route"
+      (is (= "POST /users" ((match-routes routes) {:request-method :post :uri "/users"}))))
 
-(deftest match-route-test
-  (testing "matching nil"
-    (is (= nil (trail/match nil))))
+    (testing "matched PUT route"
+      (is (= "PUT /users 123" ((match-routes routes) {:request-method :put :uri "/users/123"}))))
 
-  (testing "matching nil vals"
-    (is (= nil (trail/match {:uri nil :request-method nil}))))
+    (testing "matched PATCH route"
+      (is (= "PATCH /users 2" ((match-routes routes) {:request-method :patch :uri "/users/2"}))))
 
-  (testing "matching route that doesn't exist"
-    (is (= nil (trail/match {:uri "/exists" :request-method :get}))))
+   (testing "matched DELETE route"
+      (is (= "DELETE /users 321" ((match-routes routes) {:request-method :delete :uri "/users/321"}))))))
 
-  (testing "matching route that does exist"
-    (is (= {:fn :all :route-params {}} (trail/match {:uri "/users" :request-method :get}))))
+(deftest resource-test
+  (let [routes (resource {} :users)]
+    (testing "resolves controller functions"
+      (is (= "GET /users" ((match-routes routes) {:request-method :get :uri "/users"}))))
 
-  (testing "match /"
-    (is (= {:fn :home :route-params {}} (trail/match {:uri "/" :request-method :get}))))
+    (testing "resolves delete function"
+      (is (= "DELETE /users/321" ((match-routes routes) {:request-method :delete :uri "/users/321"}))))))
 
-  (testing "match /users/:id"
-    (is (= {:fn :users.http/fetch :route-params {:id "123"}}
-           (trail/match {:uri "/users/123"
-                         :request-method :get}))))
-
-  (testing "a relatively deeply nested route"
-    (is (= {:fn :tags.http/fetch :route-params {:user-id "123"
-                                                :flag-id "333"}}
-           (trail/match {:uri "/users/123/flags/333/tags"
-                         :request-method :get})))))
