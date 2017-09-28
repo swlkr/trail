@@ -1,6 +1,6 @@
 (ns trail.core
   (:require [clout.core :as clout])
-  (:refer-clojure :exclude [get update]))
+  (:refer-clojure :exclude [get]))
 
 (defn route
   ([method route-map uri f]
