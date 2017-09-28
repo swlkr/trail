@@ -7,7 +7,7 @@ Ring routing library
 Add this to your `project.clj`
 
 ```clojure
-[trail "1.2.0"]
+[trail "1.3.0"]
 ```
 
 ## Usage
