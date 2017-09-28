@@ -43,23 +43,27 @@
   ([middleware routes-to-wrap]
    (wrap-routes {} middleware routes-to-wrap)))
 
-(defmacro resource [route-map k]
-  (let [n (name k)
-        url (str "/" n)
-        index (str url)
-        create (str url)
-        show (str url "/:id")
-        new (str url "/new")
-        edit (str url "/:id/edit")
-        update (str url "/:id")
-        del (str url "/:id")]
-    (-> route-map
-        (get index (resolve (symbol (str n "/index"))))
-        (post create (resolve (symbol (str n "/create"))))
-        (get new (resolve (symbol (str n "/new!"))))
-        (get edit (resolve (symbol (str n "/edit"))))
-        (put update (resolve (symbol (str n "/update!"))))
-        (delete del (resolve (symbol (str n "/delete")))))))
+(defn resource
+  ([route-map k]
+   (let [n (name k)
+         url (str "/" n)
+         index (str url)
+         create (str url)
+         show (str url "/:id")
+         new (str url "/new")
+         edit (str url "/:id/edit")
+         update (str url "/:id")
+         del (str url "/:id")]
+      (-> route-map
+          (get index (resolve (symbol (str n "/index"))))
+          (get show (resolve (symbol (str n "/show"))))
+          (post create (resolve (symbol (str n "/create"))))
+          (get new (resolve (symbol (str n "/new!"))))
+          (get edit (resolve (symbol (str n "/edit"))))
+          (put update (resolve (symbol (str n "/update!"))))
+          (delete del (resolve (symbol (str n "/delete")))))))
+  ([k]
+   (resource {} k)))
 
 (defmacro defroutes [name & routes]
   `(def ~name (-> ~@routes)))

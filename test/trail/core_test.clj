@@ -1,8 +1,7 @@
 (ns trail.core-test
   (:require [clojure.test :refer :all]
             [clout.core :as clout]
-            [trail.core :refer :all]
-            [trail.users :as users])
+            [trail.core :refer :all])
   (:refer-clojure :exclude [get]))
 
 (defn auth [handler]
@@ -44,12 +43,3 @@
 
    (testing "matched DELETE route"
       (is (= "DELETE /users 321" ((match-routes routes) {:request-method :delete :uri "/users/321"}))))))
-
-(deftest resource-test
-  (let [routes (resource {} :users)]
-    (testing "resolves controller functions"
-      (is (= "GET /users" ((match-routes routes) {:request-method :get :uri "/users"}))))
-
-    (testing "resolves delete function"
-      (is (= "DELETE /users/321" ((match-routes routes) {:request-method :delete :uri "/users/321"}))))))
-
