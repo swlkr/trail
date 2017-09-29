@@ -66,4 +66,5 @@
    (resource {} k)))
 
 (defmacro defroutes [name & routes]
-  `(def ~name (-> ~@routes)))
+  `(def ~name (-> ~@routes
+                  (match-routes))))
