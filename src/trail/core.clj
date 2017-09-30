@@ -14,7 +14,7 @@
 (def patch (partial route :patch))
 (def delete (partial route :delete))
 
-(defn not-found [route-map f]
+(defn route-not-found [route-map f]
   (assoc route-map :not-found f))
 
 (defn match-route [request [k v]]

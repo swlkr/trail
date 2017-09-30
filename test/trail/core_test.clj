@@ -17,7 +17,7 @@
                    (put "/users/:id" (fn [r] (str "PUT /users " (-> r :params :id))))
                    (patch "/users/:user-id" (fn [r] (str "PATCH /users " (-> r :params :user-id))))
                    (delete "/users/:uid" (fn [r] (str "DELETE /users " (-> r :params :uid))))
-                   (not-found (fn [r] "not found")))]
+                   (route-not-found (fn [r] "not found")))]
 
     (testing "custom not found route"
       (is (= "not found" ((match-routes routes) {:request-method :get :uri "/not-found"}))))
