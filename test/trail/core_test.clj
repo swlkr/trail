@@ -17,6 +17,7 @@
                    (put "/users/:id" (fn [r] (str "PUT /users " (-> r :params :id))))
                    (patch "/users/:user-id" (fn [r] (str "PATCH /users " (-> r :params :user-id))))
                    (delete "/users/:uid" (fn [r] (str "DELETE /users " (-> r :params :uid))))
+                   (delete "/sessions" (fn [r] (str "DELETE /sessions")))
                    (route-not-found (fn [r] "not found")))]
 
     (testing "custom not found route"
@@ -41,5 +42,8 @@
     (testing "matched PATCH route"
       (is (= "PATCH /users 2" ((match-routes routes) {:request-method :patch :uri "/users/2"}))))
 
-   (testing "matched DELETE route"
-      (is (= "DELETE /users 321" ((match-routes routes) {:request-method :delete :uri "/users/321"}))))))
+    (testing "matched DELETE route"
+      (is (= "DELETE /users 321" ((match-routes routes) {:request-method :delete :uri "/users/321"}))))
+
+    (testing "matched DELETE route"
+      (is (= "DELETE /users 321" ((match-routes routes) {:request-method :get :params {:_method :delete} :uri "/users/321"}))))))
