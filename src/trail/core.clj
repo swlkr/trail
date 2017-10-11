@@ -1,5 +1,7 @@
 (ns trail.core
-  (:require [clout.core :as clout])
+  (:require [clout.core :as clout]
+            [clojure.string :as string]
+            [inflections.core :as inflections])
   (:refer-clojure :exclude [get]))
 
 (defn route
@@ -44,23 +46,29 @@
    (wrap-routes {} middleware routes-to-wrap)))
 
 (defn resource
-  ([route-map k]
-   (let [n (name k)
+  ([route-map & ks]
+   (let [rest (drop-last ks)
+         prefix (->> (map name rest)
+                     (map (fn [x] [x (str ":" (inflections/singular x) "_id")]))
+                     (flatten)
+                     (clojure.string/join "/"))
+         prefix (when (not (empty? prefix )) (str "/" prefix))
+         n (name (last ks))
          url (str "/" n)
-         index (str url)
-         create (str url)
-         show (str url "/:id")
-         new (str url "/new")
-         edit (str url "/:id/edit")
-         update (str url "/:id")
-         del (str url "/:id")]
+         index (str prefix url)
+         create (str prefix url)
+         show (str prefix url "/:id")
+         new (str prefix url "/new")
+         edit (str prefix url "/:id/edit")
+         update (str prefix url "/:id")
+         del (str prefix url "/:id")]
       (-> route-map
           (get index (resolve (symbol (str n "/index"))))
+          (get new (resolve (symbol (str n "/new-"))))
           (get show (resolve (symbol (str n "/show"))))
           (post create (resolve (symbol (str n "/create"))))
-          (get new (resolve (symbol (str n "/new!"))))
           (get edit (resolve (symbol (str n "/edit"))))
-          (put update (resolve (symbol (str n "/update!"))))
+          (put update (resolve (symbol (str n "/update-"))))
           (delete del (resolve (symbol (str n "/delete")))))))
   ([k]
    (resource {} k)))
