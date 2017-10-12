@@ -51,10 +51,10 @@
   ([route-map & ks]
    (let [rest (drop-last ks)
          prefix (->> (map name rest)
-                     (map (fn [x] [x (str ":" (inflections/singular x) "_id")]))
+                     (map (fn [x] [x (str ":" (inflections/singular x) "-id")]))
                      (flatten)
                      (clojure.string/join "/"))
-         prefix (when (not (empty? prefix )) (str "/" prefix))
+         prefix (when (not (empty? prefix)) (str "/" prefix))
          n (name (last ks))
          url (str "/" n)
          index (str prefix url)
