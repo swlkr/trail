@@ -30,10 +30,23 @@
        :key k
        :fn v})))
 
+(defn middleware-identity [handler]
+  "A hack to get the ring middleware stack working"
+  (fn [request]
+    (handler request)))
+
+(defn wrap-routes
+  "Wrap a certain set of routes in a function. Useful for auth."
+  ([route-map middleware routes-to-wrap]
+   (merge route-map (into {} (map (fn [[k v]] [k (middleware v)]) routes-to-wrap))))
+  ([middleware routes-to-wrap]
+   (wrap-routes {} middleware routes-to-wrap)))
+
 (defn match-routes [route-map]
   "Turn a map of routes into a ring handler"
   (fn [request]
-    (let [not-found-fn (:not-found route-map)
+    (let [route-map (wrap-routes middleware-identity route-map) ; get ring middleware working
+          not-found-fn (:not-found route-map)
           filtered-routes (filter (fn [[k v]] (or (= (first k) (:request-method request))
                                                   (= (first k) (-> request :params :_method keyword))))
                                   (dissoc route-map :not-found))
