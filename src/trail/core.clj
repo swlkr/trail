@@ -5,6 +5,7 @@
   (:refer-clojure :exclude [get]))
 
 (defn route
+  "Sugar for making a trail map"
   ([method route-map uri f]
    (assoc route-map [method uri] f))
   ([method uri f]
@@ -17,9 +18,11 @@
 (def delete (partial route :delete))
 
 (defn route-not-found [route-map f]
+  "Special route for 404s"
   (assoc route-map :not-found f))
 
 (defn match-route [request [k v]]
+  "Wrap clout to return a map that trail can use"
   (let [uri (second k)
         params (clout/route-matches uri request)]
     (when params
@@ -28,6 +31,7 @@
        :fn v})))
 
 (defn match-routes [route-map]
+  "Turn a map of routes into a ring handler"
   (fn [request]
     (let [not-found-fn (:not-found route-map)
           filtered-routes (filter (fn [[k v]] (or (= (first k) (:request-method request))
@@ -41,13 +45,17 @@
         ((or not-found-fn
              (fn [request] {:status 404})) request)))))
 
-(defn wrap-routes
-  ([route-map middleware routes-to-wrap]
-   (merge route-map (into {} (map (fn [[k v]] [k (middleware v)]) routes-to-wrap))))
-  ([middleware routes-to-wrap]
-   (wrap-routes {} middleware routes-to-wrap)))
-
 (defn resource
+  "Creates a set of seven functions that map to a conventional set of named functions.
+   Generates routes that look like this:
+
+   {[:get /resources] resources/index
+    [:get /resources/:id] resources/show
+    [:get /resources/new resources/new-] resources/new- ; because new is a reserved word
+    [:get /resources/:id/edit resources/edit] resources/edit
+    [:post /resources] resources/create
+    [:put /resources/:id] resources/update- ; again update is part of clojure.core
+    [:delete /resources/:id] resources/delete}"
   ([route-map & ks]
    (let [rest (drop-last ks)
          prefix (->> (map name rest)
