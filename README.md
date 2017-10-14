@@ -7,7 +7,7 @@ Ring routing library
 Add this to your `project.clj`
 
 ```clojure
-[trail "1.3.0"]
+[trail "1.9.0"]
 ```
 
 ## Usage
@@ -79,10 +79,10 @@ So instead of this
 (def routes
   (-> (trail/get "/items"          items/index)
       (trail/get "/items/:id"      items/show)
-      (trail/get "/items/:id/new"  items/new!)
+      (trail/get "/items/:id/new"  items/new-) ; why new- and not new? new is a core function
       (trail/get "/items/:id/edit" items/edit)
       (trail/post "/items"         items/create)
-      (trail/put "/items/:id"      items/update)
+      (trail/put "/items/:id"      items/update-) ; again why update- and not just update? core function
       (trail/delete "/items/:id"   items/delete)))
 ```
 
@@ -99,3 +99,30 @@ You can do this
       (trail/resource :items)
       (trail/resource :tags)))
 ```
+
+And you can do this
+
+```clojure
+(ns your-app.core
+  (:require [trail.core :as trail]
+            [your-app.controllers.posts :as posts]
+            [your-app.controllers.tags :as tags]))
+
+(def routes
+  (-> (trail/resource :posts :tags))
+
+; this gives you
+;
+; GET "/posts/:post_id/tags" => tags/index
+; GET "/posts/:post_id/tags/:id" => tags/show
+; GET "/posts/:post_id/tags/new" => tags/new-
+; GET "/posts/:post_id/tags/:id/edit" => tags/edit
+; POST "/posts/:post_id/tags" => tags/create
+; PUT "/posts/:post_id/tags/:id" => tags/update-
+; DELETE "/posts/:post_id/tags/:id" => tags/delete
+```
+
+# Why?
+
+I like shortcuts, so rails resource routing really appealed to me. I also like clojure
+so I combined them.
