@@ -44,19 +44,22 @@
 
 (defn match-routes [route-map]
   "Turn a map of routes into a ring handler"
-  (fn [request]
-    (let [route-map (wrap-routes middleware-identity route-map) ; get ring middleware working
-          not-found-fn (:not-found route-map)
-          filtered-routes (filter (fn [[k v]] (or (= (first k) (:request-method request))
-                                                  (= (first k) (-> request :params :_method keyword))))
-                                  (dissoc route-map :not-found))
-          matched-route (first (filter some? (map #(match-route request %) filtered-routes)))
-          handler (clojure.core/get route-map (:key matched-route))
-          merged-params (merge (:params request) (:params matched-route))]
-      (if (not (nil? handler))
-        (handler (assoc request :params merged-params))
-        ((or not-found-fn
-             (fn [request] {:status 404})) request)))))
+  (if (map? route-map)
+    (fn [request]
+      (let [route-map (wrap-routes middleware-identity route-map) ; get ring middleware working
+            not-found-fn (:not-found route-map)
+            filtered-routes (filter (fn [[k v]] (or (= (first k) (:request-method request))
+                                                    (= (first k) (-> request :params :_method keyword))))
+                                    (dissoc route-map :not-found))
+            matched-route (first (filter some? (map #(match-route request %) filtered-routes)))
+            handler (clojure.core/get route-map (:key matched-route))
+            merged-params (merge (:params request) (:params matched-route))]
+        (if (not (nil? handler))
+          (handler (assoc request :params merged-params))
+          ((or not-found-fn
+               (fn [request] {:status 404})) request))))
+    (fn [request]
+      (route-map request))))
 
 (defn resource
   "Creates a set of seven functions that map to a conventional set of named functions.
