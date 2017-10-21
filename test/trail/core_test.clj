@@ -10,14 +10,16 @@
 
 (deftest match-routes-test
   (let [protected-routes (-> (get "/" (fn [r] (str "GET / " (:test r))))
-                             (get "/sign-out" (fn [r] (str "GET /sign-out " (:test r)))))
-        routes (-> (wrap-routes auth protected-routes)
-                   (get "/sign-up" (fn [r] "GET /sign-up"))
+                             (get "/sign-out" (fn [r] (str "GET /sign-out " (:test r))))
+                             (get "/users/:id" (fn [r] (str "GET /users/" (-> r :params :id))))
+                             (get "/users/new" (fn [r] "GET /users/new")))
+        routes (-> (get "/sign-up" (fn [r] "GET /sign-up"))
                    (post "/users" (fn [r] "POST /users"))
                    (put "/users/:id" (fn [r] (str "PUT /users " (-> r :params :id))))
                    (patch "/users/:user-id" (fn [r] (str "PATCH /users " (-> r :params :user-id))))
                    (delete "/users/:uid" (fn [r] (str "DELETE /users " (-> r :params :uid))))
                    (delete "/sessions" (fn [r] (str "DELETE /sessions")))
+                   (wrap-routes auth protected-routes)
                    (route-not-found (fn [r] "not found")))]
 
     (testing "custom not found route"
@@ -46,4 +48,10 @@
       (is (= "DELETE /users 321" ((match-routes routes) {:request-method :delete :uri "/users/321"}))))
 
     (testing "matched DELETE route"
-      (is (= "DELETE /users 321" ((match-routes routes) {:request-method :get :params {:_method :delete} :uri "/users/321"}))))))
+      (is (= "DELETE /users 321" ((match-routes routes) {:request-method :get :params {:_method :delete} :uri "/users/321"}))))
+
+    (testing "matching new vs :id"
+      (is (= "GET /users/new" ((match-routes routes) {:request-method :get :uri "/users/new"}))))
+
+    (testing "matching :id vs new"
+      (is (= "GET /users/1" ((match-routes routes) {:request-method :get :uri "/users/1"}))))))

@@ -51,7 +51,14 @@
             filtered-routes (filter (fn [[k v]] (or (= (first k) (:request-method request))
                                                     (= (first k) (-> request :params :_method keyword))))
                                     (dissoc route-map :not-found))
-            matched-route (first (filter some? (map #(match-route request %) filtered-routes)))
+            matched-route (or (first (filter #(= (-> % first second) (:uri request)) filtered-routes))
+                              (first (filter some? (map #(match-route request %) filtered-routes))))
+            matched-route (if (and (not (nil? matched-route))
+                                   (not (map? matched-route)))
+                            {:params {}
+                             :key (first matched-route)
+                             :fn (second matched-route)}
+                            matched-route)
             handler (clojure.core/get route-map (:key matched-route))
             merged-params (merge (:params request) (:params matched-route))]
         (if (not (nil? handler))

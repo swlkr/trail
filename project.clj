@@ -1,4 +1,4 @@
-(defproject trail "1.10.0"
+(defproject trail "1.10.1"
   :description "Ring routing library"
   :url "https://github.com/swlkr/trail"
   :license {:name "Eclipse Public License"
