@@ -7,7 +7,7 @@ Ring routing library
 Add this to your `project.clj`
 
 ```clojure
-[trail "1.9.0"]
+[trail "1.11.0"]
 ```
 
 ## Usage
@@ -42,6 +42,8 @@ But there are some functions that make it a little nicer
 
 There's also a function that actually does the mapping
 
+`(trail/match-routes your-route-map)`
+
 ```clojure
 (ns your-app.core
   (require [trail.core :as trail]
@@ -59,7 +61,7 @@ There's also a function that actually does the mapping
       (trail/delete "/items/:id"   items/delete)))
 
 (def app
-  (-> (trail/match-routes routes)
+  (-> (trail/match-routes routes) ; it's this one here
       (ring-defaults/wrap-defaults site-defaults)))
 
 (server/run-server app {:port 1337})
@@ -79,10 +81,10 @@ So instead of this
 (def routes
   (-> (trail/get "/items"          items/index)
       (trail/get "/items/:id"      items/show)
-      (trail/get "/items/:id/new"  items/new-) ; why new- and not new? new is a core function
+      (trail/get "/items/:id/new"  items/new-) ; why new- and not new ? new is a core function
       (trail/get "/items/:id/edit" items/edit)
       (trail/post "/items"         items/create)
-      (trail/put "/items/:id"      items/update-) ; again why update- and not just update? core function
+      (trail/put "/items/:id"      items/update-) ; again why update- and not just update ? core function
       (trail/delete "/items/:id"   items/delete)))
 ```
 

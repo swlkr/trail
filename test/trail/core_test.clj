@@ -12,15 +12,16 @@
   (let [protected-routes (-> (get "/" (fn [r] (str "GET / " (:test r))))
                              (get "/sign-out" (fn [r] (str "GET /sign-out " (:test r))))
                              (get "/users/:id" (fn [r] (str "GET /users/" (-> r :params :id))))
-                             (get "/users/new" (fn [r] "GET /users/new")))
+                             (get "/users/new" (fn [r] "GET /users/new"))
+                             (wrap-routes-with auth))
         routes (-> (get "/sign-up" (fn [r] "GET /sign-up"))
                    (post "/users" (fn [r] "POST /users"))
                    (put "/users/:id" (fn [r] (str "PUT /users " (-> r :params :id))))
                    (patch "/users/:user-id" (fn [r] (str "PATCH /users " (-> r :params :user-id))))
                    (delete "/users/:uid" (fn [r] (str "DELETE /users " (-> r :params :uid))))
                    (delete "/sessions" (fn [r] (str "DELETE /sessions")))
-                   (wrap-routes auth protected-routes)
-                   (route-not-found (fn [r] "not found")))]
+                   (route-not-found (fn [r] "not found")))
+        routes (merge routes protected-routes)]
 
     (testing "custom not found route"
       (is (= "not found" ((match-routes routes) {:request-method :get :uri "/not-found"}))))

@@ -30,24 +30,26 @@
        :key k
        :fn v})))
 
-(defn middleware-identity [handler]
-  "A hack to get the ring middleware stack working"
-  (fn [request]
-    (handler request)))
+(defn map-vals [f m]
+  (->> m
+    (map (fn [[k v]] [k (f v)]))
+    (into {})))
 
 (defn wrap-routes
   "Wrap a certain set of routes in a function. Useful for auth."
   ([route-map middleware routes-to-wrap]
-   (merge route-map (into {} (map (fn [[k v]] [k (middleware v)]) routes-to-wrap))))
+   (merge route-map (map-vals middleware routes-to-wrap)))
   ([middleware routes-to-wrap]
    (wrap-routes {} middleware routes-to-wrap)))
+
+(defn wrap-routes-with [route-map middleware]
+  (map-vals middleware route-map))
 
 (defn match-routes [route-map]
   "Turn a map of routes into a ring handler"
   (if (map? route-map)
     (fn [request]
-      (let [route-map (wrap-routes middleware-identity route-map) ; get ring middleware working
-            not-found-fn (:not-found route-map)
+      (let [not-found-fn (:not-found route-map)
             filtered-routes (filter (fn [[k v]] (or (= (first k) (:request-method request))
                                                     (= (first k) (-> request :params :_method keyword))))
                                     (dissoc route-map :not-found))
@@ -80,32 +82,59 @@
     [:put /resources/:id] resources/update- ; again update is part of clojure.core
     [:delete /resources/:id] resources/delete}"
   ([route-map & ks]
-   (let [rest (drop-last ks)
+   (let [[filterer filter-resources] (take-last 2 ks)
+         only (if (and (= :only filterer)
+                       (vector? filter-resources)
+                       (not (empty? filter-resources)))
+                filterer
+                nil)
+         except (if (and (= :except filterer)
+                         (vector? filter-resources)
+                         (not (empty? filter-resources)))
+                  filterer
+                  nil)
+         rest (if (and (nil? only)
+                       (nil? except))
+                (drop-last ks)
+                (drop-last 3 ks))
+         n (if (and (nil? only)
+                    (nil? except))
+             (name (last ks))
+             (name (last (drop-last 2 ks))))
          prefix (->> (map name rest)
                      (map (fn [x] [x (str ":" (inflections/singular x) "-id")]))
                      (flatten)
                      (clojure.string/join "/"))
          prefix (when (not (empty? prefix)) (str "/" prefix))
-         n (name (last ks))
-         url (str "/" n)
-         index (str prefix url)
-         create (str prefix url)
-         show (str prefix url "/:id")
-         new (str prefix url "/new")
-         edit (str prefix url "/:id/edit")
-         update (str prefix url "/:id")
-         del (str prefix url "/:id")]
-      (-> route-map
-          (get index (resolve (symbol (str n "/index"))))
-          (get new (resolve (symbol (str n "/new-"))))
-          (get show (resolve (symbol (str n "/show"))))
-          (post create (resolve (symbol (str n "/create"))))
-          (get edit (resolve (symbol (str n "/edit"))))
-          (put update (resolve (symbol (str n "/update-"))))
-          (delete del (resolve (symbol (str n "/delete")))))))
-  ([k]
-   (resource {} k)))
-
-(defmacro defroutes [name & routes]
-  `(def ~name (-> ~@routes
-                  (match-routes))))
+         routes {:index {:method :get
+                         :route (str prefix "/" n)
+                         :handler (str n "/index")}
+                 :new {:method :get
+                       :route (str prefix "/" n "/new")
+                       :handler (str n "/new-")}
+                 :show {:method :get
+                        :route (str prefix "/" n "/:id")
+                        :handler (str n "/show")}
+                 :create {:method :post
+                          :route (str prefix "/" n)
+                          :handler (str n "/create")}
+                 :edit {:method :get
+                        :route (str prefix "/" n "/:id/edit")
+                        :handler (str n "/edit")}
+                 :update {:method :put
+                          :route (str prefix "/" n "/:id")
+                          :handler (str n "/update-")}
+                 :delete {:method :delete
+                          :route (str prefix "/" n "/:id")
+                          :handler (str n "/delete")}}
+         routes (if (nil? only)
+                  routes
+                  (filter (fn [[k v]] (.contains filter-resources k)) routes))
+         routes (if (nil? except)
+                  routes
+                  (filter (fn [[k v]] (not (.contains filter-resources k))) routes))
+         routes (into {} (map (fn [[k v]] [[(:method v) (:route v)] (resolve (symbol (:handler v)))])
+                              routes))]
+     (merge route-map routes)))
+  ([ks]
+   (resource {} ks)))
