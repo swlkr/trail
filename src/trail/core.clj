@@ -1,15 +1,29 @@
 (ns trail.core
   (:require [clout.core :as clout]
             [clojure.string :as string]
-            [inflections.core :as inflections])
+            [inflections.core :as inflections]
+            [clojure.pprint :as pprint])
   (:refer-clojure :exclude [get]))
+
+(defn make-route-name [uri method]
+  (let [ns (-> (string/replace uri #"^/" "")
+               (string/replace #"/" "-")
+               (string/replace #":" "")
+               (string/trim))
+        name (string/trim (if (keyword? method)
+                            (name method)
+                            method))]
+    (if (= uri "/")
+      :root
+      (keyword name ns))))
 
 (defn route
   "Sugar for making a trail map"
-  ([method route-map uri f]
-   (assoc route-map [method uri] f))
+  ([method route-map uri f & n]
+   (let [route-name (or (first n) (make-route-name uri method))]
+     (assoc route-map [method uri route-name] f)))
   ([method uri f]
-   (route method {} uri f)))
+   (route method {} uri f nil)))
 
 (def get (partial route :get))
 (def post (partial route :post))
@@ -24,8 +38,13 @@
 (defn match-route [request [k v]]
   "Wrap clout to return a map that trail can use"
   (let [uri (second k)
+        method (first k)
         params (clout/route-matches uri request)]
-    (when params
+    (when
+      (and (not (nil? params))
+           (= method (or
+                       (-> request :params :_method keyword)
+                       (-> request :request-method))))
       {:params params
        :key k
        :fn v})))
@@ -43,6 +62,7 @@
    (wrap-routes {} middleware routes-to-wrap)))
 
 (defn wrap-routes-with [route-map middleware]
+  "Wraps a given set of routes in a function."
   (map-vals middleware route-map))
 
 (defn match-routes [route-map]
@@ -50,8 +70,8 @@
   (if (map? route-map)
     (fn [request]
       (let [not-found-fn (:not-found route-map)
-            filtered-routes (filter (fn [[k v]] (or (= (first k) (:request-method request))
-                                                    (= (first k) (-> request :params :_method keyword))))
+            filtered-routes (filter (fn [[k v]] (or (= (first k) (-> request :params :_method keyword))
+                                                    (= (first k) (:request-method request))))
                                     (dissoc route-map :not-found))
             matched-route (or (first (filter #(= (-> % first second) (:uri request)) filtered-routes))
                               (first (filter some? (map #(match-route request %) filtered-routes))))
@@ -74,13 +94,13 @@
   "Creates a set of seven functions that map to a conventional set of named functions.
    Generates routes that look like this:
 
-   {[:get /resources] resources/index
-    [:get /resources/:id] resources/show
-    [:get /resources/new resources/new-] resources/new- ; because new is a reserved word
-    [:get /resources/:id/edit resources/edit] resources/edit
-    [:post /resources] resources/create
-    [:put /resources/:id] resources/update- ; again update is part of clojure.core
-    [:delete /resources/:id] resources/delete}"
+   {[:get /resources :resources/index] :resources/index
+    [:get /resources/:id :resources/show] :resources/show
+    [:get /resources/new resources/new- :resources/new-] resources/new- ; because new is a reserved word
+    [:get /resources/:id/edit resources/edit :resources/edit] resources/edit
+    [:post /resources :resources/create] :resources/create
+    [:put /resources/:id :resources/update-] :resources/update- ; again update is part of clojure.core
+    [:delete /resources/:id :resources/delete] :resources/delete}"
   ([route-map & ks]
    (let [[filterer filter-resources] (take-last 2 ks)
          only (if (and (= :only filterer)
@@ -106,35 +126,73 @@
                      (flatten)
                      (clojure.string/join "/"))
          prefix (when (not (empty? prefix)) (str "/" prefix))
+         name-prefix (->> (map name rest)
+                          (clojure.string/join "-"))
+         name-prefix (when (not (empty? name-prefix)) (str name-prefix "-"))
          routes {:index {:method :get
                          :route (str prefix "/" n)
-                         :handler (str n "/index")}
+                         :handler (str n "/index")
+                         :name (keyword (str name-prefix n))}
                  :new {:method :get
                        :route (str prefix "/" n "/new")
-                       :handler (str n "/new-")}
+                       :handler (str n "/new-")
+                       :name (keyword (str name-prefix n) "new-")}
                  :show {:method :get
                         :route (str prefix "/" n "/:id")
-                        :handler (str n "/show")}
+                        :handler (str n "/show")
+                        :name (keyword (str name-prefix (inflections/singular n)))}
                  :create {:method :post
                           :route (str prefix "/" n)
-                          :handler (str n "/create")}
+                          :handler (str n "/create")
+                          :name (keyword (str name-prefix n) "create")}
                  :edit {:method :get
                         :route (str prefix "/" n "/:id/edit")
-                        :handler (str n "/edit")}
+                        :handler (str n "/edit")
+                        :name (keyword (str name-prefix n) "edit")}
                  :update {:method :put
                           :route (str prefix "/" n "/:id")
-                          :handler (str n "/update-")}
+                          :handler (str n "/update-")
+                          :name (keyword (str name-prefix n) "update-")}
                  :delete {:method :delete
                           :route (str prefix "/" n "/:id")
-                          :handler (str n "/delete")}}
+                          :handler (str n "/delete")
+                          :name (keyword (str name-prefix n) "delete")}}
          routes (if (nil? only)
                   routes
                   (filter (fn [[k v]] (.contains filter-resources k)) routes))
          routes (if (nil? except)
                   routes
                   (filter (fn [[k v]] (not (.contains filter-resources k))) routes))
-         routes (into {} (map (fn [[k v]] [[(:method v) (:route v)] (resolve (symbol (:handler v)))])
+         routes (into {} (map (fn [[k v]] [[(:method v) (:route v) (:name v)] (resolve (symbol (:handler v)))])
                               routes))]
      (merge route-map routes)))
   ([ks]
    (resource {} ks)))
+
+(defn map-replace [m s]
+  (reduce
+    (fn [acc [k v]] (string/replace acc (str k) (str v)))
+    s m))
+
+(defn url-for
+  ([routes route-name m]
+   (let [route (->> (dissoc routes :not-found)
+                    (filter (fn [[k v]] (= (last k) route-name)))
+                    (first))]
+     (if (not (nil? route))
+       (->> route
+            (first)
+            (second)
+            (map-replace m)))))
+  ([routes route-name]
+   (url-for routes route-name {})))
+
+(defn pretty-print-route [[k v]]
+  (let [method (-> k first name string/upper-case)
+        route (second k)
+        n (last k)]
+    (str method " " route " => " n)))
+
+(defn route-names [routes]
+  (let [routes (dissoc routes :not-found)]
+    (map pretty-print-route routes)))

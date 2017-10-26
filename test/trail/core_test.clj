@@ -8,21 +8,21 @@
   (fn [request]
     (handler (assoc request :test "test"))))
 
-(deftest match-routes-test
-  (let [protected-routes (-> (get "/" (fn [r] (str "GET / " (:test r))))
-                             (get "/sign-out" (fn [r] (str "GET /sign-out " (:test r))))
-                             (get "/users/:id" (fn [r] (str "GET /users/" (-> r :params :id))))
-                             (get "/users/new" (fn [r] "GET /users/new"))
-                             (wrap-routes-with auth))
-        routes (-> (get "/sign-up" (fn [r] "GET /sign-up"))
-                   (post "/users" (fn [r] "POST /users"))
-                   (put "/users/:id" (fn [r] (str "PUT /users " (-> r :params :id))))
-                   (patch "/users/:user-id" (fn [r] (str "PATCH /users " (-> r :params :user-id))))
-                   (delete "/users/:uid" (fn [r] (str "DELETE /users " (-> r :params :uid))))
-                   (delete "/sessions" (fn [r] (str "DELETE /sessions")))
-                   (route-not-found (fn [r] "not found")))
-        routes (merge routes protected-routes)]
+(let [protected-routes (-> (get "/" (fn [r] (str "GET / " (:test r))))
+                           (get "/sign-out" (fn [r] (str "GET /sign-out " (:test r))))
+                           (get "/users/:id" (fn [r] (str "GET /users/" (-> r :params :id))) :get-a-user)
+                           (get "/users/new" (fn [r] "GET /users/new"))
+                           (wrap-routes-with auth))
+      routes (-> (get "/sign-up" (fn [r] "GET /sign-up"))
+                 (post "/users" (fn [r] "POST /users"))
+                 (put "/users/:id" (fn [r] (str "PUT /users " (-> r :params :id))))
+                 (patch "/users/:user-id" (fn [r] (str "PATCH /users " (-> r :params :user-id))))
+                 (delete "/users/:uid" (fn [r] (str "DELETE /users " (-> r :params :uid))))
+                 (delete "/sessions" (fn [r] (str "DELETE /sessions")))
+                 (route-not-found (fn [r] "not found")))
+      routes (merge routes protected-routes)]
 
+  (deftest match-routes-test
     (testing "custom not found route"
       (is (= "not found" ((match-routes routes) {:request-method :get :uri "/not-found"}))))
 
@@ -55,4 +55,25 @@
       (is (= "GET /users/new" ((match-routes routes) {:request-method :get :uri "/users/new"}))))
 
     (testing "matching :id vs new"
-      (is (= "GET /users/1" ((match-routes routes) {:request-method :get :uri "/users/1"}))))))
+      (is (= "GET /users/1" ((match-routes routes) {:request-method :get :uri "/users/1"})))))
+
+  (deftest url-for-test
+    (testing "named route"
+      (is (= "/users/123" (url-for routes :get-a-user {:id 123}))))
+
+    (testing "auto named route"
+      (is (= "/users/new" (url-for routes :get/users-new))))
+
+    (testing "nil params"
+      (is (= nil (url-for nil nil nil))))
+
+    (testing "blank routes"
+      (is (= nil (url-for {} nil nil))))
+
+    (testing "routes without correct map params"
+      (is (= "/users/:id" (url-for routes :get-a-user)))))
+
+  (deftest route-names-test
+    (testing "list route names for each route"
+      (let [local-routes (-> (get "/" #()))]
+        (is (= '("GET / => :root") (route-names local-routes)))))))
