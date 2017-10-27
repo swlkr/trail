@@ -7,7 +7,7 @@
 
 (defn make-route-name [uri method]
   (let [ns (-> (string/replace uri #"^/" "")
-               (string/replace #"/" "-")
+               (string/replace #"/" ".")
                (string/replace #":" "")
                (string/trim))
         name (string/trim (if (keyword? method)
@@ -84,7 +84,8 @@
             handler (clojure.core/get route-map (:key matched-route))
             merged-params (merge (:params request) (:params matched-route))]
         (if (not (nil? handler))
-          (handler (assoc request :params merged-params))
+          (handler (assoc request :params merged-params
+                                  :routes route-map))
           ((or not-found-fn
                (fn [request] {:status 404})) request))))
     (fn [request]
@@ -127,20 +128,20 @@
                      (clojure.string/join "/"))
          prefix (when (not (empty? prefix)) (str "/" prefix))
          name-prefix (->> (map name rest)
-                          (clojure.string/join "-"))
-         name-prefix (when (not (empty? name-prefix)) (str name-prefix "-"))
+                          (clojure.string/join "."))
+         name-prefix (when (not (empty? name-prefix)) (str name-prefix "."))
          routes {:index {:method :get
                          :route (str prefix "/" n)
                          :handler (str n "/index")
-                         :name (keyword (str name-prefix n))}
+                         :name (keyword (str name-prefix n) "index")}
                  :new {:method :get
                        :route (str prefix "/" n "/new")
                        :handler (str n "/new-")
-                       :name (keyword (str name-prefix n) "new-")}
+                       :name (keyword (str name-prefix n) "new")}
                  :show {:method :get
                         :route (str prefix "/" n "/:id")
                         :handler (str n "/show")
-                        :name (keyword (str name-prefix (inflections/singular n)))}
+                        :name (keyword (str name-prefix n) "show")}
                  :create {:method :post
                           :route (str prefix "/" n)
                           :handler (str n "/create")
@@ -152,7 +153,7 @@
                  :update {:method :put
                           :route (str prefix "/" n "/:id")
                           :handler (str n "/update-")
-                          :name (keyword (str name-prefix n) "update-")}
+                          :name (keyword (str name-prefix n) "update")}
                  :delete {:method :delete
                           :route (str prefix "/" n "/:id")
                           :handler (str n "/delete")

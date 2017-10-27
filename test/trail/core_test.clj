@@ -62,7 +62,7 @@
       (is (= "/users/123" (url-for routes :get-a-user {:id 123}))))
 
     (testing "auto named route"
-      (is (= "/users/new" (url-for routes :get/users-new))))
+      (is (= "/users/new" (url-for routes :get/users.new))))
 
     (testing "nil params"
       (is (= nil (url-for nil nil nil))))
@@ -76,4 +76,15 @@
   (deftest route-names-test
     (testing "list route names for each route"
       (let [local-routes (-> (get "/" #()))]
-        (is (= '("GET / => :root") (route-names local-routes)))))))
+        (is (= '("GET / => :root") (route-names local-routes)))))
+
+    (testing "index resource route"
+      (let [resource-routes (resource {} :items)]
+        (is (= '("GET /items => :items/index"
+                 "GET /items/new => :items/new"
+                 "GET /items/:id => :items/show"
+                 "POST /items => :items/create"
+                 "GET /items/:id/edit => :items/edit"
+                 "PUT /items/:id => :items/update"
+                 "DELETE /items/:id => :items/delete")
+                (route-names resource-routes)))))))
