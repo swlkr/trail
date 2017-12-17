@@ -1,90 +1,132 @@
 (ns trail.core-test
   (:require [clojure.test :refer :all]
-            [clout.core :as clout]
-            [trail.core :refer :all])
-  (:refer-clojure :exclude [get]))
+            [trail.core :as trail]))
+
+(deftest match-routes-test
+  (testing "empty vector"
+    (let [routes []
+          handler (trail/match-routes [])]
+      (is (= {:status 404} (handler {})))))
+
+  (testing "nil routes"
+    (let [handler (trail/match-routes nil)]
+      (is (= {:status 404} (handler {})))))
+
+  (testing "nil route vector"
+    (let [handler (trail/match-routes [[nil nil nil]])]
+      (is (= {:status 404} (handler {})))))
+
+  (testing "valid route vector"
+    (let [users-index (fn [r] "/users")
+          routes [[:get "/users" users-index]]
+          app (trail/match-routes routes)]
+      (is (= "/users" (app {:request-method :get
+                            :uri "/users"})))))
+
+  (testing "not found middleware"
+    (let [users-show (fn [r])
+          routes (-> (trail/get "/users/:id" (fn [r]))
+                     (trail/route-not-found (fn [r] {:status 404
+                                                     :body "not found"})))
+          app (trail/match-routes routes)]
+      (is (= {:status 404
+              :body "not found"} (app {:request-method :get
+                                       :uri "/users"})))))
+  (testing "route with params"
+    (let [users-show (fn [r] (str "/users/" (get-in r [:params :id])))
+          routes (-> (trail/get "/users/:id" users-show))
+          app (trail/match-routes routes)]
+      (is (= "/users/123" (app {:request-method :get
+                                :uri "/users/123"})))))
+
+  (testing "one url to n functions without parameters"
+    (let [one (fn [request] "one")
+          two (fn [request] "two")
+          routes (-> (trail/get "/same" one)
+                     (trail/get "/same" two))
+          app (trail/match-routes routes)]
+      (is (= "two" (app {:request-method :get
+                         :uri "/same"})))))
+
+  (testing "one url to n functions with parameters"
+    (let [one (fn [request] "one")
+          two (fn [request] (-> request :params :hello))
+          routes (-> (trail/get "/same/:id" one)
+                     (trail/get "/same/:hello" two))
+          app (trail/match-routes routes)]
+      (is (= "sean" (app {:request-method :get
+                          :uri "/same/sean"})))))
+
+  (testing "one url to n functions without parameters"
+    (let [user (fn [r] (-> r :params :id))
+          admin (fn [r] (-> r :params :id))
+          routes (-> (trail/get "/users/:id" user)
+                     (trail/get "/users/admin" admin))
+          app (trail/match-routes routes)]
+      (is (= nil (app {:request-method :get
+                       :uri "/users/admin"})))))
+
+  (testing "one url to n functions with/without parameters"
+    (let [user (fn [r] (-> r :params :id))
+          admin (fn [r] (-> r :params :id))
+          routes (-> (trail/get "/users/:id" user)
+                     (trail/get "/users/admin" admin))
+          app (trail/match-routes routes)]
+      (is (= "123" (app {:request-method :get
+                         :uri "/users/123"})))))
+
+  (testing "url without parameter comes first"
+    (let [user (fn [r] (-> r :params :id))
+          admin (fn [r] (-> r :params :id))
+          routes (-> (trail/get "/users/admin" admin)
+                     (trail/get "/users/:id" user))
+          app (trail/match-routes routes)]
+      (is (= "123" (app {:request-method :get
+                         :uri "/users/123"}))))))
+
+(deftest url-for-test
+  (testing "nil"
+    (is (= nil (trail/url-for nil))))
+
+  (testing "empty vector"
+    (is (= nil (trail/url-for []))))
+
+  (testing "vector with nils"
+    (is (= nil (trail/url-for [nil nil nil]))))
+
+  (testing "valid url-for"
+    (is (= "/users/123" (trail/url-for [:get "/users/:id" {:id 123}]))))
+
+  (testing "valid url-for multiple params"
+    (is (= "/users/123/tags/321" (trail/url-for [:get "/users/:id/tags/:tag-id" {:id 123 :tag-id 321}]))))
+
+  (testing "mismatched params"
+    (is (= "/users/:id" (trail/url-for [:get "/users/:id" {}]))))
+
+  (testing "mismatched params multiple params"
+    (is (= "/users/:id/tags/321" (trail/url-for [:get "/users/:id/tags/:tag-id" {:tag-id 321}])))))
 
 (defn auth [handler]
   (fn [request]
     (handler (assoc request :test "test"))))
 
-(let [protected-routes (-> (get "/" (fn [r] (str "GET / " (:test r))))
-                           (get "/sign-out" (fn [r] (str "GET /sign-out " (:test r))))
-                           (get "/users/:id" (fn [r] (str "GET /users/" (-> r :params :id))) :get-a-user)
-                           (get "/users/new" (fn [r] "GET /users/new"))
-                           (wrap-routes-with auth))
-      routes (-> (get "/sign-up" (fn [r] "GET /sign-up"))
-                 (post "/users" (fn [r] "POST /users"))
-                 (put "/users/:id" (fn [r] (str "PUT /users " (-> r :params :id))))
-                 (patch "/users/:user-id" (fn [r] (str "PATCH /users " (-> r :params :user-id))))
-                 (delete "/users/:uid" (fn [r] (str "DELETE /users " (-> r :params :uid))))
-                 (delete "/sessions" (fn [r] (str "DELETE /sessions")))
-                 (route-not-found (fn [r] "not found")))
-      routes (merge routes protected-routes)]
+(deftest wrap-routes-with-test
+  (testing "valid middleware"
+    (let [handler (fn [request] (get request :test))
+          routes (-> (trail/get "/" handler)
+                     (trail/wrap-routes-with auth))
+          app (trail/match-routes routes)]
+      (is (= "test" (app {:request-method :get :uri "/"}))))))
 
-  (deftest match-routes-test
-    (testing "custom not found route"
-      (is (= "not found" ((match-routes routes) {:request-method :get :uri "/not-found"}))))
+(deftest resource-test
+  (testing "resource"
+    (let [resource-routes (trail/resource :items)]
+      (is (= 7 (count resource-routes)))))
 
-    (testing "default not found route"
-      (let [routes (dissoc routes :not-found)]
-        (is (= {:status 404} ((match-routes routes) {:request-method :get :uri "/something"})))))
+  (testing "resources :only"
+    (let [routes (trail/resource :items :only [:index])]
+      (is (= 1 (count routes)))))
 
-    (testing "matched route"
-      (is (= "GET /sign-up" ((match-routes routes) {:request-method :get :uri "/sign-up"}))))
-
-    (testing "matched wrapped route"
-      (is (= "GET / test" ((match-routes routes) {:request-method :get :uri "/"}))))
-
-    (testing "matched POST route"
-      (is (= "POST /users" ((match-routes routes) {:request-method :post :uri "/users"}))))
-
-    (testing "matched PUT route"
-      (is (= "PUT /users 123" ((match-routes routes) {:request-method :put :uri "/users/123"}))))
-
-    (testing "matched PATCH route"
-      (is (= "PATCH /users 2" ((match-routes routes) {:request-method :patch :uri "/users/2"}))))
-
-    (testing "matched DELETE route"
-      (is (= "DELETE /users 321" ((match-routes routes) {:request-method :delete :uri "/users/321"}))))
-
-    (testing "matched DELETE route"
-      (is (= "DELETE /users 321" ((match-routes routes) {:request-method :get :params {:_method :delete} :uri "/users/321"}))))
-
-    (testing "matching new vs :id"
-      (is (= "GET /users/new" ((match-routes routes) {:request-method :get :uri "/users/new"}))))
-
-    (testing "matching :id vs new"
-      (is (= "GET /users/1" ((match-routes routes) {:request-method :get :uri "/users/1"})))))
-
-  (deftest url-for-test
-    (testing "named route"
-      (is (= "/users/123" (url-for routes :get-a-user {:id 123}))))
-
-    (testing "auto named route"
-      (is (= "/users/new" (url-for routes :get/users.new))))
-
-    (testing "nil params"
-      (is (= nil (url-for nil nil nil))))
-
-    (testing "blank routes"
-      (is (= nil (url-for {} nil nil))))
-
-    (testing "routes without correct map params"
-      (is (= "/users/:id" (url-for routes :get-a-user)))))
-
-  (deftest route-names-test
-    (testing "list route names for each route"
-      (let [local-routes (-> (get "/" #()))]
-        (is (= '("GET / => :root") (route-names local-routes)))))
-
-    (testing "index resource route"
-      (let [resource-routes (resource {} :items)]
-        (is (= '("GET /items => :items/index"
-                 "GET /items/new => :items/new"
-                 "GET /items/:id => :items/show"
-                 "POST /items => :items/create"
-                 "GET /items/:id/edit => :items/edit"
-                 "PUT /items/:id => :items/update"
-                 "DELETE /items/:id => :items/delete")
-                (route-names resource-routes)))))))
+  (testing "resource routes"
+    (let [routes (trail/resource :users :only [:index])]
+      (is (= '(:get "/users") (take 2 (first routes)))))))
