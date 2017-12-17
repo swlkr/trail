@@ -4,6 +4,8 @@ Ring routing library
 
 ## Install
 
+[Looking for v1? Look no further my friend!](https://github.com/swlkr/trail/tree/1.13.0)
+
 Add this to your `project.clj`
 
 ```clojure
