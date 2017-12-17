@@ -7,42 +7,50 @@ Ring routing library
 Add this to your `project.clj`
 
 ```clojure
-[trail "1.11.0"]
+[trail "2.0.0"]
 ```
 
 ## Usage
 
-A route map is organized like this
+```clojure
+(ns your-app.core
+  (require [trail.core :as trail]))
+```
+
+These are the routes
 
 ```clojure
-(def routes {
-  [:get "/items"]          items/index
-  [:get "/items/:id"]      items/show
-  [:get "/items/:id/new"]  items/new!
-  [:get "/items/:id/edit"] items/edit
-  [:post "/items"]         items/create
-  [:put "/items/:id"]      items/update
-  [:delete "/items/:id"]   items/delete
-})
+(def routes [
+  [:get    "/items"           items/index]
+  [:get    "/items/:id"       items/show]
+  [:get    "/items/:id/fresh" items/fresh]
+  [:get    "/items/:id/edit"  items/edit]
+  [:post   "/items"           items/create]
+  [:put    "/items/:id"       items/change]
+  [:delete "/items/:id"       items/delete]
+])
 ```
 
 And you can write your routes as data if you wanted to.
-But there are some functions that make it a little nicer
+Or there are some functions if you prefer parens
 
 ```clojure
 (def routes
-  (-> (trail/get "/items"          items/index)
-      (trail/get "/items/:id"      items/show)
-      (trail/get "/items/:id/new"  items/new!)
-      (trail/get "/items/:id/edit" items/edit)
-      (trail/post "/items"         items/create)
-      (trail/put "/items/:id"      items/update)
-      (trail/delete "/items/:id"   items/delete)))
+  (-> (trail/get    "/items"           items/index)
+      (trail/get    "/items/:id"       items/show)
+      (trail/get    "/items/:id/fresh" items/fresh)
+      (trail/get    "/items/:id/edit"  items/edit)
+      (trail/post   "/items"           items/create)
+      (trail/put    "/items/:id"       items/change)
+      (trail/delete "/items/:id"       items/delete)))
 ```
 
-There's also a function that actually does the mapping
+There's also a function that turns your route into a ring
+handler function
 
 `(trail/match-routes your-route-map)`
+
+Here's a more complete example
 
 ```clojure
 (ns your-app.core
@@ -52,13 +60,13 @@ There's also a function that actually does the mapping
            [your-app.controllers.items :as items]))
 
 (def routes
-  (-> (trail/get "/items"          items/index)
-      (trail/get "/items/:id"      items/show)
-      (trail/get "/items/:id/new"  items/new!)
-      (trail/get "/items/:id/edit" items/edit)
-      (trail/post "/items"         items/create)
-      (trail/put "/items/:id"      items/update)
-      (trail/delete "/items/:id"   items/delete)))
+  (-> (trail/get    "/items"           items/index)
+      (trail/get    "/items/:id"       items/show)
+      (trail/get    "/items/:id/fresh" items/fresh)
+      (trail/get    "/items/:id/edit"  items/edit)
+      (trail/post   "/items"           items/create)
+      (trail/put    "/items/:id"       items/change)
+      (trail/delete "/items/:id"       items/delete)))
 
 (def app
   (-> (trail/match-routes routes) ; it's this one here
@@ -79,13 +87,13 @@ So instead of this
            [your-app.controllers.items :as items]))
 
 (def routes
-  (-> (trail/get "/items"          items/index)
-      (trail/get "/items/:id"      items/show)
-      (trail/get "/items/:id/new"  items/new-) ; why new- and not new ? new is a core function
-      (trail/get "/items/:id/edit" items/edit)
-      (trail/post "/items"         items/create)
-      (trail/put "/items/:id"      items/update-) ; again why update- and not just update ? core function
-      (trail/delete "/items/:id"   items/delete)))
+  (-> (trail/get    "/items"           items/index)
+      (trail/get    "/items/:id"       items/show)
+      (trail/get    "/items/:id/fresh" items/fresh)
+      (trail/get    "/items/:id/edit"  items/edit)
+      (trail/post   "/items"           items/create)
+      (trail/put    "/items/:id"       items/change)
+      (trail/delete "/items/:id"       items/delete)))
 ```
 
 You can do this
@@ -94,12 +102,9 @@ You can do this
 (ns your-app.core
   (require [trail.core :as trail]
            [your-app.controllers.items :as items]))
-           [your-app.controllers.tags :as tags]))
 
 (def routes
-  (-> {}
-      (trail/resource :items)
-      (trail/resource :tags)))
+  (-> (trail/resource :items)))
 ```
 
 And you can do this
@@ -115,13 +120,42 @@ And you can do this
 
 ; this gives you
 ;
-; GET "/posts/:post_id/tags" => tags/index
-; GET "/posts/:post_id/tags/:id" => tags/show
-; GET "/posts/:post_id/tags/new" => tags/new-
-; GET "/posts/:post_id/tags/:id/edit" => tags/edit
-; POST "/posts/:post_id/tags" => tags/create
-; PUT "/posts/:post_id/tags/:id" => tags/update-
-; DELETE "/posts/:post_id/tags/:id" => tags/delete
+; GET "/posts/:post-id/tags" => tags/index
+; GET "/posts/:post-id/tags/:id" => tags/show
+; GET "/posts/:post-id/tags/new" => tags/fresh
+; GET "/posts/:post-id/tags/:id/edit" => tags/edit
+; POST "/posts/:post-id/tags" => tags/create
+; PUT "/posts/:post-id/tags/:id" => tags/change
+; DELETE "/posts/:post-id/tags/:id" => tags/delete
+```
+
+Don't want all of the routes a resource gives you?
+
+```clojure
+(def routes
+ (-> (trail/resource :posts :only [:index :show])))
+ 
+; =>
+[
+ [:get "/posts"     posts/index]
+ [:get "/posts/:id" posts/show]
+]
+```
+
+Want all of the route except certain ones?
+
+```clojure
+(def routes
+ (-> (trail/resource :posts :except [:index :show])))
+ 
+ ; =>
+ [
+  [:get    "/posts/:id/fresh" posts/fresh]
+  [:get    "/posts/:id/edit"  posts/edit]
+  [:post   "/posts"           posts/create]
+  [:put    "/posts/:id"       posts/change]
+  [:delete "/posts/:id"       posts/delete]
+ ]
 ```
 
 # Why?
