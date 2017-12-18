@@ -144,7 +144,7 @@ Don't want all of the routes a resource gives you?
 ]
 ```
 
-Want all of the route except certain ones?
+Want all of the routes except certain ones?
 
 ```clojure
 (def routes
