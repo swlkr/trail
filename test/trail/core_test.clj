@@ -86,25 +86,41 @@
 
 (deftest url-for-test
   (testing "nil"
-    (is (= nil (trail/url-for nil))))
+    (is (= "" (trail/url-for nil))))
 
   (testing "empty vector"
-    (is (= nil (trail/url-for []))))
+    (is (= "" (trail/url-for []))))
 
   (testing "vector with nils"
-    (is (= nil (trail/url-for [nil nil nil]))))
+    (is (= "" (trail/url-for [nil nil nil]))))
 
   (testing "valid url-for"
-    (is (= "/users/123" (trail/url-for [:get "/users/:id" {:id 123}]))))
+    (is (= "/users/123" (trail/url-for ["/users/:id" {:id 123}]))))
 
   (testing "valid url-for multiple params"
-    (is (= "/users/123/tags/321" (trail/url-for [:get "/users/:id/tags/:tag-id" {:id 123 :tag-id 321}]))))
+    (is (= "/users/123/tags/321" (trail/url-for ["/users/:id/tags/:tag-id" {:id 123 :tag-id 321}]))))
 
   (testing "mismatched params"
-    (is (= "/users/:id" (trail/url-for [:get "/users/:id" {}]))))
+    (is (= "/users/:id" (trail/url-for ["/users/:id" {}]))))
 
   (testing "mismatched params multiple params"
-    (is (= "/users/:id/tags/321" (trail/url-for [:get "/users/:id/tags/:tag-id" {:tag-id 321}])))))
+    (is (= "/users/:id/tags/321" (trail/url-for ["/users/:id/tags/:tag-id" {:tag-id 321}]))))
+
+  (testing "delete method"
+    (is (= "/items/123?_method=delete" (trail/url-for [:delete "/items/:id" {:id 123}]))))
+
+  (testing "no method"
+    (is (= "/users/fresh" (trail/url-for ["/users/fresh"])))))
+
+(deftest action-for-test
+  (testing "nil"
+    (is (= "" (trail/action-for nil))))
+
+  (testing "post"
+    (is (= "/items/123" (trail/action-for [:post "/items/:id" {:id 123}]))))
+
+  (testing "no method"
+    (is (= "/items/123" (trail/action-for ["/items/:id" {:id 123}])))))
 
 (defn auth [handler]
   (fn [request]
@@ -133,4 +149,8 @@
 
   (testing "resource routes"
     (let [routes (trail/resource :users :only [:index])]
-      (is (= '(:get "/users") (take 2 (first routes)))))))
+      (is (= '(:get "/users") (take 2 (first routes))))))
+
+  (testing "nested resources"
+    (let [routes (trail/resource :users :items)]
+      (is (= "/users/:user-id/items/:id" (-> routes (nth 2) second))))))

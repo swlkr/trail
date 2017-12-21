@@ -13,18 +13,46 @@
 (defn route-str [s m]
   (string/replace s param-re #(replacement % m)))
 
-(defn url-for
-  "Generates a url based on http method, route syntax and params"
+(def verbs [:get :post :put :patch :delete])
+
+(defn in? [val coll]
+  (not= -1 (.indexOf coll val)))
+
+(defn verb? [value]
+  (in? value verbs))
+
+(defn method-verb? [value]
+  (let [method-verbs (-> (drop 1 verbs)
+                         (vec))]
+    (in? value method-verbs)))
+
+(defn param-method [method]
+  (when (method-verb? method)
+    (str "?_method=" (name (or method "")))))
+
+(defn uri-for
+  "Generates a uri based on method, route syntax and params"
   [v]
   (when (and (vector? v)
              (not (empty? v))
              (every? (comp not nil?) v))
     (let [[arg1 arg2 arg3] v
-          [method route params] (if (nil? arg3) ["get" arg1 arg2] [arg1 arg2 arg3])
-          method (name method)
-          href (route-str route params)
-          method (if (= "get" method) "" (str "?_method="  method))]
-      (str href method))))
+          [_ route params] (if (not (verb? arg1))
+                              [:get arg1 arg2]
+                              [arg1 arg2 arg3])]
+      (route-str route params))))
+
+(defn url-for
+  "Generates a url based on http method, route syntax and params"
+  [v]
+  (let [uri (uri-for v)
+        [method] v]
+    (str uri (param-method method))))
+
+(defn action-for
+  "Generates a form action based on http method"
+  [v]
+  (str "" (uri-for v)))
 
 (defn route-params [req-uri route-uri]
   (when (and (some? req-uri)
