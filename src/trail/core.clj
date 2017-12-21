@@ -90,7 +90,7 @@
                                 (last))
           routes (filter (comp not not-found-route?) routes)
           route (-> (filter #(match [method uri] %) routes)
-                    (last))
+                    (first))
           [_ route-uri handler] route
           params (route-params uri route-uri)
           handler (or handler not-found-handler (fn [_] {:status 404}))
@@ -155,32 +155,39 @@
                         (map prefix-param %)
                         (concat '("") (interleave (map name prefix-ks) %) resource-names)
                         (string/join "/" %))
-        resource-map {:index {:method :get
-                              :route route-str
-                              :handler (str resource-name "/index")}
-                      :fresh {:method :get
-                              :route (str route-str "/fresh")
-                              :handler (str resource-name "/fresh")}
-                      :show {:method :get
-                             :route (str route-str "/:id")
-                             :handler (str resource-name "/show")}
-                      :create {:method :post
-                               :route route-str
-                               :handler (str resource-name "/create")}
-                      :edit {:method :get
-                             :route (str route-str "/:id/edit")
-                             :handler (str resource-name "/edit")}
-                      :change {:method :put
-                               :route (str route-str "/:id")
-                               :handler (str resource-name "/change")}
-                      :delete {:method :delete
-                               :route (str route-str "/:id")
-                               :handler (str resource-name "/delete")}}
-        resource-map (if only?
-                       (into {} (filter (fn [[k _]] (.contains filter-resources k)) resource-map))
-                       resource-map)
-        resource-map (if except?
-                       (into {} (filter (fn [[k _]] (not (.contains filter-resources k))) resource-map))
-                       resource-map)
-        resources (map #(resource-route % not-found-handler) (vals resource-map))]
+        resources [{:method :get
+                    :route route-str
+                    :handler (str resource-name "/index")
+                    :name :index}
+                   {:method :get
+                    :route (str route-str "/fresh")
+                    :handler (str resource-name "/fresh")
+                    :name :fresh}
+                   {:method :get
+                    :route (str route-str "/:id")
+                    :handler (str resource-name "/show")
+                    :name :show}
+                   {:method :post
+                    :route route-str
+                    :handler (str resource-name "/create")
+                    :name :create}
+                   {:method :get
+                    :route (str route-str "/:id/edit")
+                    :handler (str resource-name "/edit")
+                    :name :edit}
+                   {:method :put
+                    :route (str route-str "/:id")
+                    :handler (str resource-name "/change")
+                    :name :change}
+                   {:method :delete
+                    :route (str route-str "/:id")
+                    :handler (str resource-name "/delete")
+                    :name :delete}]
+        resources (if only?
+                   (filter #(not= -1 (.indexOf filter-resources (clojure.core/get % :name))) resources)
+                   resources)
+        resources (if except?
+                   (filter #(= -1 (.indexOf filter-resources (clojure.core/get % :name))) resources)
+                   resources)
+        resources (map #(resource-route % not-found-handler) resources)]
     (vec (concat routes resources))))

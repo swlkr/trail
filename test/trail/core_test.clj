@@ -45,14 +45,14 @@
           routes (-> (trail/get "/same" one)
                      (trail/get "/same" two))
           app (trail/match-routes routes)]
-      (is (= "two" (app {:request-method :get
+      (is (= "one" (app {:request-method :get
                          :uri "/same"})))))
 
   (testing "one url to n functions with parameters"
     (let [one (fn [request] "one")
           two (fn [request] (-> request :params :hello))
-          routes (-> (trail/get "/same/:id" one)
-                     (trail/get "/same/:hello" two))
+          routes (-> (trail/get "/same/:hello" two)
+                     (trail/get "/same/:id" one))
           app (trail/match-routes routes)]
       (is (= "sean" (app {:request-method :get
                           :uri "/same/sean"})))))
@@ -60,8 +60,8 @@
   (testing "one url to n functions without parameters"
     (let [user (fn [r] (-> r :params :id))
           admin (fn [r] (-> r :params :id))
-          routes (-> (trail/get "/users/:id" user)
-                     (trail/get "/users/admin" admin))
+          routes (-> (trail/get "/users/admin" admin)
+                     (trail/get "/users/:id" user))
           app (trail/match-routes routes)]
       (is (= nil (app {:request-method :get
                        :uri "/users/admin"})))))
@@ -126,6 +126,10 @@
   (testing "resources :only"
     (let [routes (trail/resource :items :only [:index])]
       (is (= 1 (count routes)))))
+
+  (testing "resources :except"
+    (let [routes (trail/resource :items :except [:index])]
+      (is (= 6 (count routes)))))
 
   (testing "resource routes"
     (let [routes (trail/resource :users :only [:index])]
