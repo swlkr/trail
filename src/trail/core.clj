@@ -120,7 +120,8 @@
           route (-> (filter #(match [method uri] %) routes)
                     (first))
           [_ route-uri handler] route
-          params (route-params uri route-uri)
+          trail-params (route-params uri route-uri)
+          params (merge params trail-params)
           handler (or handler not-found-handler (fn [_] {:status 404}))
           request (assoc request :params params)]
       (handler request))))
