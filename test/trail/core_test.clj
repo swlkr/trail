@@ -1,6 +1,7 @@
 (ns trail.core-test
   (:require [clojure.test :refer :all]
-            [trail.core :as trail]))
+            [trail.core :as trail]
+            [clojure.edn :as edn]))
 
 (deftest match-routes-test
   (testing "empty vector"
@@ -82,7 +83,19 @@
                      (trail/get "/users/:id" user))
           app (trail/match-routes routes)]
       (is (= "123" (app {:request-method :get
-                         :uri "/users/123"}))))))
+                         :uri "/users/123"})))))
+
+  (testing "post"
+    (let [routes (-> (trail/post "/users" (fn [r] (-> r :params :id))))
+          app (trail/match-routes routes)]
+      (is (= "123" (app {:request-method :post :uri "/users" :params {:id "123"}})))))
+
+  (testing "put"
+    (let [routes (-> (trail/put "/users/:id" (fn [r] (-> r :params :id))))
+          app (trail/match-routes routes)]
+      (is (= "123" (app {:request-method :post
+                         :uri "/users/123"
+                         :params {:_method "put"}}))))))
 
 (deftest url-for-test
   (testing "nil"
@@ -126,13 +139,43 @@
   (fn [request]
     (handler (assoc request :test "test"))))
 
+(defn map-vals [f m]
+  (->> m
+       (map (fn [[k v]] [k (f v)]))
+       (into {})))
+
+(defn coerce-params [val]
+  (let [val (if (vector? val) (last val) val)]
+    (cond
+      (some? (re-find #"^\d+\.?\d*$" val)) (edn/read-string val)
+      (and (empty? val) (string? val)) (edn/read-string val)
+      (and (string? val) (= val "false")) false
+      (and (string? val) (= val "true")) true
+      :else val)))
+
+(defn wrap-coerce-params [handler]
+  (fn [request]
+    (let [{:keys [params]} request
+          params (map-vals coerce-params params)
+          request (assoc request :params params)]
+      (handler request))))
+
 (deftest wrap-routes-with-test
   (testing "valid middleware"
     (let [handler (fn [request] (get request :test))
           routes (-> (trail/get "/" handler)
                      (trail/wrap-routes-with auth))
           app (trail/match-routes routes)]
-      (is (= "test" (app {:request-method :get :uri "/"}))))))
+      (is (= "test" (app {:request-method :get :uri "/"})))))
+
+  (testing "multiple routes"
+    (let [handler (fn [request] (get-in request [:params :id]))
+          not-found-handler (fn [_] "not found")
+          routes (-> (trail/get "/users/:id" handler)
+                     (trail/route-not-found not-found-handler)
+                     (trail/wrap-routes-with wrap-coerce-params))
+          app (trail/match-routes routes)]
+      (is (= 123 (app {:request-method :get :uri "/users/123"}))))))
 
 (deftest resource-test
   (testing "resource"

@@ -112,7 +112,7 @@
   "Turns trail routes into a ring handler"
   (fn [request]
     (let [{:keys [request-method uri params]} request
-          method (or (clojure.core/get params :_method) request-method)
+          method (or (-> params :_method keyword) request-method)
           not-found-handler (-> (filter not-found-route? routes)
                                 (first)
                                 (last))
