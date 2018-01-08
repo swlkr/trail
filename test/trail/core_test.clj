@@ -73,8 +73,8 @@
           routes (-> (trail/get "/users/:id" user)
                      (trail/get "/users/admin" admin))
           app (trail/match-routes routes)]
-      (is (= "123" (app {:request-method :get
-                         :uri "/users/123"})))))
+      (is (= 123 (app {:request-method :get
+                       :uri "/users/123"})))))
 
   (testing "url without parameter comes first"
     (let [user (fn [r] (-> r :params :id))
@@ -82,20 +82,20 @@
           routes (-> (trail/get "/users/admin" admin)
                      (trail/get "/users/:id" user))
           app (trail/match-routes routes)]
-      (is (= "123" (app {:request-method :get
-                         :uri "/users/123"})))))
+      (is (= 123 (app {:request-method :get
+                       :uri "/users/123"})))))
 
   (testing "post"
     (let [routes (-> (trail/post "/users" (fn [r] (-> r :params :id))))
           app (trail/match-routes routes)]
-      (is (= "123" (app {:request-method :post :uri "/users" :params {:id "123"}})))))
+      (is (= 123 (app {:request-method :post :uri "/users" :params {:id "123"}})))))
 
   (testing "put"
     (let [routes (-> (trail/put "/users/:id" (fn [r] (-> r :params :id))))
           app (trail/match-routes routes)]
-      (is (= "123" (app {:request-method :post
-                         :uri "/users/123"
-                         :params {:_method "put"}}))))))
+      (is (= 123 (app {:request-method :post
+                       :uri "/users/123"
+                       :params {:_method "put"}}))))))
 
 (deftest url-for-test
   (testing "nil"
@@ -144,14 +144,20 @@
        (map (fn [[k v]] [k (f v)]))
        (into {})))
 
+(defn coerce-string [s]
+  (when (string? s)
+    (cond
+      (and (some? (re-find #"^\d+\.?\d*$" s))) (edn/read-string s)
+      (and (empty? s)) (edn/read-string s)
+      (and (= s "false")) false
+      (and (= s "true")) true
+      :else s)))
+
 (defn coerce-params [val]
   (let [val (if (vector? val) (last val) val)]
-    (cond
-      (some? (re-find #"^\d+\.?\d*$" val)) (edn/read-string val)
-      (and (empty? val) (string? val)) (edn/read-string val)
-      (and (string? val) (= val "false")) false
-      (and (string? val) (= val "true")) true
-      :else val)))
+    (if (string? val)
+      (coerce-string val)
+      val)))
 
 (defn wrap-coerce-params [handler]
   (fn [request]

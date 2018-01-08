@@ -1,6 +1,7 @@
 (ns trail.core
   (:require [clojure.string :as string]
-            [inflections.core :as inflections])
+            [inflections.core :as inflections]
+            [clojure.edn :as edn])
   (:refer-clojure :exclude [get]))
 
 (def param-re #":([\w-_]+)")
@@ -101,6 +102,27 @@
   "Wraps a given set of routes in a function."
   (map #(wrap-route-with % middleware) routes))
 
+(defn map-vals [f m]
+  (->> m
+       (map (fn [[k v]] [k (f v)]))
+       (into {})))
+
+(defn coerce-params [val]
+  (let [val (if (vector? val) (last val) val)]
+    (cond
+      (some? (re-find #"^\d+\.?\d*$" val)) (edn/read-string val)
+      (and (empty? val) (string? val)) (edn/read-string val)
+      (and (string? val) (= val "false")) false
+      (and (string? val) (= val "true")) true
+      :else val)))
+
+(defn wrap-coerce-params [handler]
+  "Coerces integers and uuid values in params"
+  (fn [request]
+    (let [{:keys [params]} request
+          request (assoc request :params (map-vals coerce-params params))]
+      (handler request))))
+
 (defn route-not-found [routes f]
   "Special route for 404s"
   (conj routes [:404 f]))
@@ -123,6 +145,7 @@
           trail-params (route-params uri route-uri)
           params (merge params trail-params)
           handler (or handler not-found-handler (fn [_] {:status 404}))
+          params (map-vals coerce-params params)
           request (assoc request :params params)]
       (handler request))))
 
