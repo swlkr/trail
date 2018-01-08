@@ -126,6 +126,12 @@
           request (assoc request :params params)]
       (handler request))))
 
+(defn wrap-match-routes [arg]
+  (if (fn? arg)
+    (fn [request]
+      (arg request))
+    (match-routes arg)))
+
 (defn prefix-param [s]
   (as-> (inflections/singular s) %
         (str  % "-id")))
