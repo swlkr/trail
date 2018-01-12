@@ -1,6 +1,6 @@
 (ns trail.core
   (:require [clojure.string :as string]
-            [inflections.core :as inflections]
+            [word.core :as word]
             [clojure.edn :as edn])
   (:refer-clojure :exclude [get]))
 
@@ -156,7 +156,7 @@
     (match-routes arg)))
 
 (defn prefix-param [s]
-  (as-> (inflections/singular s) %
+  (as-> (word/singular s) %
         (str  % "-id")))
 
 (defn resource-route [m not-found-handler]

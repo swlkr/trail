@@ -1,5 +1,5 @@
-(defproject trail "2.1.0"
-  :description "Ring routing library"
+(defproject trail "2.2.0"
+  :description "A ring routing library"
   :url "https://github.com/swlkr/trail"
   :license {:name "MIT License"
             :url "https://opensource.org/licenses/MIT"}
