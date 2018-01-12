@@ -1,7 +1,9 @@
 (defproject trail "2.1.0"
   :description "Ring routing library"
   :url "https://github.com/swlkr/trail"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0"]
-                 [inflections "0.13.0"]])
+  :license {:name "MIT License"
+            :url "https://opensource.org/licenses/MIT"}
+  :scm {:name "git"
+        :url "https://github.com/swlkr/trail"}
+  :dependencies [[org.clojure/clojure "1.9.0"]
+                 [swlkr/word "0.1.0"]])
