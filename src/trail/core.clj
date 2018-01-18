@@ -110,8 +110,9 @@
 (defn coerce-params [val]
   (let [val (if (vector? val) (last val) val)]
     (cond
-      (some? (re-find #"^\d+\.?\d*$" val)) (edn/read-string val)
-      (and (empty? val) (string? val)) (edn/read-string val)
+      (and (string? val)
+           (some? (re-find #"^-?\d+\.?\d*$" val))) (edn/read-string val)
+      (and (string? val) (string/blank? val)) (edn/read-string val)
       (and (string? val) (= val "false")) false
       (and (string? val) (= val "true")) true
       :else val)))
