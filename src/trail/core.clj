@@ -107,15 +107,22 @@
        (map (fn [[k v]] [k (f v)]))
        (into {})))
 
+(defn booleans? [val]
+  (and (vector? val)
+       (every? #(or (= % "true")
+                    (= % "false")) val)))
+
 (defn coerce-params [val]
-  (let [val (if (vector? val) (last val) val)]
-    (cond
-      (and (string? val)
-           (some? (re-find #"^-?\d+\.?\d*$" val))) (edn/read-string val)
-      (and (string? val) (string/blank? val)) (edn/read-string val)
-      (and (string? val) (= val "false")) false
-      (and (string? val) (= val "true")) true
-      :else val)))
+  (cond
+    (and (string? val)
+         (some? (re-find #"^-?\d+\.?\d*$" val))) (edn/read-string val)
+    (and (string? val) (string/blank? val)) (edn/read-string val)
+    (booleans? val) (edn/read-string (last val))
+    (and (string? val) (= val "false")) false
+    (and (string? val) (= val "true")) true
+    (vector? val) (mapv coerce-params val)
+    (list? val) (map coerce-params val)
+    :else val))
 
 (defn wrap-coerce-params [handler]
   "Coerces integers and uuid values in params"
